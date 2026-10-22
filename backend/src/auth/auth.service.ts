@@ -68,4 +68,8 @@ export class AuthService {
         const result = await this.userRepository.delete(user);
         return result;
     }
+
+    async checkToken() {
+        return { result: 'Token correct' };
+    }
 }

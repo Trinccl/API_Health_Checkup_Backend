@@ -25,4 +25,10 @@ export class AuthController {
     async deleteMe(@CurrentUser() user: any) {
         return this.authService.deleteUserById(user.sub);
     }
+
+    @Post('checkToken')
+    @UseGuards(AuthGuard)
+    async checkToken() {
+        return this.authService.checkToken();
+    }
 }
