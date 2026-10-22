@@ -1,15 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 @Injectable()
 export class CheckerService {
-    async ping(url: string) {
-        const time_start = performance.now();
+    private static readonly TIMEOUT_MS = 5000;
 
-        const response = await fetch(url);
+    async ping(url: string): Promise<{ time: number }> {
+        const start = performance.now();
 
-        const time_end = performance.now();
+        const response = await fetch(url, {
+            method: 'GET',
+            signal: AbortSignal.timeout(CheckerService.TIMEOUT_MS),
+        }).catch(() => null);
 
-        const time_delta = time_end - time_start;
-        return { time: time_delta };
+        if (!response?.ok) {
+            throw new BadRequestException(['url must be a reachable URL address']);
+        }
+
+        return { time: performance.now() - start };
     }
 }
