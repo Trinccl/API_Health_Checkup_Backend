@@ -40,9 +40,9 @@ describe('AuthController', () => {
         it('propagates service errors', async () => {
             authService.signUp.mockRejectedValue(new Error('boom'));
 
-            await expect(
-                controller.signUp({} as SignupDto)
-            ).rejects.toThrow('boom');
+            await expect(controller.signUp({} as SignupDto)).rejects.toThrow(
+                'boom'
+            );
         });
     });
 

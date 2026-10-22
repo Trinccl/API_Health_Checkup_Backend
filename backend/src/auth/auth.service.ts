@@ -38,7 +38,7 @@ export class AuthService {
 
         await this.userRepository.save(newUser);
 
-        return { name: name, email: email };   
+        return { name: name, email: email };
     }
 
     async login(loginData: LoginDto) {
@@ -56,5 +56,16 @@ export class AuthService {
         return {
             accessToken: await this.jwtService.signAsync(payload)
         };
+    }
+
+    async deleteUserById(id: string) {
+        const user = await this.userRepository.findOneBy({ id });
+
+        if (!user) {
+            throw new BadRequestException('User does not exist');
+        }
+
+        const result = await this.userRepository.delete(user);
+        return result;
     }
 }

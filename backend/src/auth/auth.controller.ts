@@ -1,7 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dtos/signup.dto';
 import { LoginDto } from './dtos/login.dto';
+import { AuthGuard } from './auth.guard';
+import { CurrentUser } from './current-user.decorator';
+import { User } from './schemas/user.entity';
 
 @Controller('auth')
 export class AuthController {
@@ -15,5 +18,11 @@ export class AuthController {
     @Post('login')
     async login(@Body() loginData: LoginDto) {
         return this.authService.login(loginData);
+    }
+
+    @Delete('me')
+    @UseGuards(AuthGuard)
+    async deleteMe(@CurrentUser() user: any) {
+        return this.authService.deleteUserById(user.sub);
     }
 }

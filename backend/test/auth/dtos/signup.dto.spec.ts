@@ -18,9 +18,9 @@ describe('SignupDto', () => {
     });
 
     it('accepts a password without symbols', async () => {
-        expect(await validate_({ ...valid, password: 'Abcdefg1' })).toHaveLength(
-            0
-        );
+        expect(
+            await validate_({ ...valid, password: 'Abcdefg1' })
+        ).toHaveLength(0);
     });
 
     it('rejects a non-string name', async () => {

@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './auth/schemas/user.entity';
 import { ConfigModule } from '@nestjs/config';
+import { CheckerModule } from './checker/checker.module';
 
 @Module({
     imports: [
@@ -19,7 +20,8 @@ import { ConfigModule } from '@nestjs/config';
             entities: [User],
             synchronize: true
         }),
-        AuthModule
+        AuthModule,
+        CheckerModule
     ],
     controllers: [AppController],
     providers: [AppService]

@@ -155,7 +155,9 @@ describe('AuthService', () => {
 
             userRepository.findOneBy.mockResolvedValueOnce(user);
             bcryptCompare.mockResolvedValueOnce(false);
-            const wrongPassword = await service.login(loginData).catch((e) => e);
+            const wrongPassword = await service
+                .login(loginData)
+                .catch((e) => e);
 
             expect(unknownUser.message).toBe(wrongPassword.message);
         });
