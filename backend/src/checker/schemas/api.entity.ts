@@ -25,7 +25,13 @@ export class Api {
     @Column({ nullable: false })
     intervalMinutes: number;
 
-    @Column()
+    @Column({ nullable: false })
+    statusField: string;
+
+    @Column({ nullable: false })
+    errorStatusMessage: string;
+
+    @Column({ default: 'UNKNOWN' })
     status: string; // 'UP' | 'SLOW' | 'DOWN' | 'UNKNOWN'
 
     @Column({ default: 0 })
