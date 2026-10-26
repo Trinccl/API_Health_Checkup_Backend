@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { CheckerService } from './checker.service';
 import { CheckerController } from './checker.controller';
-import { AuthGuard } from '../auth/auth.guard';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Api } from './schemas/api.entity';
+import { ApiLog } from './schemas/api-log.entity';
 
 @Module({
     imports: [
+        TypeOrmModule.forFeature([Api, ApiLog]),
         JwtModule.registerAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({

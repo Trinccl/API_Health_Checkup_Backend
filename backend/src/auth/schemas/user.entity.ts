@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Api } from '../../checker/schemas/api.entity';
 
 @Entity('users')
 export class User {
@@ -13,4 +14,7 @@ export class User {
 
     @Column({ nullable: false })
     password: string;
+
+    @OneToMany(() => Api, (api) => api.user, { cascade: true })
+    apis: Api[];
 }

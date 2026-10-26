@@ -3,8 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { LoginDto } from '../../../src/auth/dtos/login.dto';
 
-const validate_ = (data: Record<string, unknown>) =>
-    validate(plainToInstance(LoginDto, data));
+const validate_ = (data: Record<string, unknown>) => validate(plainToInstance(LoginDto, data));
 
 describe('LoginDto', () => {
     it('accepts valid data', async () => {

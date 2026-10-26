@@ -3,8 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { SignupDto } from '../../../src/auth/dtos/signup.dto';
 
-const validate_ = (data: Record<string, unknown>) =>
-    validate(plainToInstance(SignupDto, data));
+const validate_ = (data: Record<string, unknown>) => validate(plainToInstance(SignupDto, data));
 
 const valid = {
     name: 'John',
@@ -18,9 +17,7 @@ describe('SignupDto', () => {
     });
 
     it('accepts a password without symbols', async () => {
-        expect(
-            await validate_({ ...valid, password: 'Abcdefg1' })
-        ).toHaveLength(0);
+        expect(await validate_({ ...valid, password: 'Abcdefg1' })).toHaveLength(0);
     });
 
     it('rejects a non-string name', async () => {

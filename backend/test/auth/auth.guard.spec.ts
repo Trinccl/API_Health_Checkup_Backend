@@ -34,27 +34,21 @@ describe('AuthGuard', () => {
     it('throws when the Authorization header is missing', async () => {
         const { context } = createContext();
 
-        await expect(guard.canActivate(context)).rejects.toThrow(
-            UnauthorizedException
-        );
+        await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
         expect(jwtService.verifyAsync).not.toHaveBeenCalled();
     });
 
     it('throws when the scheme is not Bearer', async () => {
         const { context } = createContext({ authorization: 'Basic abc123' });
 
-        await expect(guard.canActivate(context)).rejects.toThrow(
-            UnauthorizedException
-        );
+        await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
         expect(jwtService.verifyAsync).not.toHaveBeenCalled();
     });
 
     it('throws when the Bearer token is missing', async () => {
         const { context } = createContext({ authorization: 'Bearer' });
 
-        await expect(guard.canActivate(context)).rejects.toThrow(
-            UnauthorizedException
-        );
+        await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
         expect(jwtService.verifyAsync).not.toHaveBeenCalled();
     });
 
@@ -64,9 +58,7 @@ describe('AuthGuard', () => {
             authorization: 'Bearer expired-token'
         });
 
-        await expect(guard.canActivate(context)).rejects.toThrow(
-            UnauthorizedException
-        );
+        await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
         expect(request.user).toBeUndefined();
     });
 });

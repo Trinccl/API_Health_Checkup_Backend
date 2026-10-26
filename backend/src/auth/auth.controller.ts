@@ -4,7 +4,6 @@ import { SignupDto } from './dtos/signup.dto';
 import { LoginDto } from './dtos/login.dto';
 import { AuthGuard } from './auth.guard';
 import { CurrentUser } from './current-user.decorator';
-import { User } from './schemas/user.entity';
 
 @Controller('auth')
 export class AuthController {

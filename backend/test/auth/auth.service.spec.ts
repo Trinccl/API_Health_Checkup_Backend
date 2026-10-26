@@ -118,10 +118,7 @@ describe('AuthService', () => {
             expect(userRepository.findOneBy).toHaveBeenCalledWith({
                 email: loginData.email
             });
-            expect(bcryptCompare).toHaveBeenCalledWith(
-                loginData.password,
-                user.password
-            );
+            expect(bcryptCompare).toHaveBeenCalledWith(loginData.password, user.password);
             expect(jwtService.signAsync).toHaveBeenCalledWith({
                 sub: user.id,
                 email: user.email
@@ -155,9 +152,7 @@ describe('AuthService', () => {
 
             userRepository.findOneBy.mockResolvedValueOnce(user);
             bcryptCompare.mockResolvedValueOnce(false);
-            const wrongPassword = await service
-                .login(loginData)
-                .catch((e) => e);
+            const wrongPassword = await service.login(loginData).catch((e) => e);
 
             expect(unknownUser.message).toBe(wrongPassword.message);
         });

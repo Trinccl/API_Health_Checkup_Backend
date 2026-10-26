@@ -1,8 +1,4 @@
-import {
-    BadRequestException,
-    Injectable,
-    UnauthorizedException
-} from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { SignupDto } from './dtos/signup.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -45,8 +41,7 @@ export class AuthService {
         const { email, password } = loginData;
 
         const user = await this.userRepository.findOneBy({ email });
-        const passwordMatches =
-            user && (await bcrypt.compare(password, user.password));
+        const passwordMatches = user && (await bcrypt.compare(password, user.password));
 
         if (!passwordMatches) {
             throw new UnauthorizedException('Wrong credentials');
@@ -65,7 +60,7 @@ export class AuthService {
             throw new BadRequestException('User does not exist');
         }
 
-        const result = await this.userRepository.delete(user);
+        const result = await this.userRepository.delete(user.id);
         return result;
     }
 
