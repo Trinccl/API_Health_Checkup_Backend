@@ -29,4 +29,10 @@ export class ApiDto {
     @Max(59)
     @IsInt()
     intervalMinutes: number;
+
+    @IsString()
+    statusField: string;
+
+    @IsString()
+    errorStatusMessage: string;
 }

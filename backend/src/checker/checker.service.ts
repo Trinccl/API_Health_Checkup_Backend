@@ -82,7 +82,40 @@ export class CheckerService implements OnModuleInit {
     }
 
     async addApi(apiData: ApiDto, userId: string) {
-        throw new Error('Method not implemented.');
+        const {
+            name,
+            url,
+            slowThresholdMs,
+            errorsToAlert,
+            requestMethod,
+            intervalMinutes,
+            statusField,
+            errorStatusMessage
+        } = apiData;
+
+        const apiAlreadyThere = await this.apiRepository.find({
+            where: { user: { id: userId }, name: name }
+        });
+
+        if (apiAlreadyThere) {
+            throw new BadRequestException('Yo bro you already have this API big dawg!');
+        }
+
+        const newApi = this.apiRepository.create({
+            name,
+            url,
+            slowThresholdMs,
+            errorsToAlert,
+            requestMethod,
+            intervalMinutes,
+            statusField,
+            errorStatusMessage,
+            user: { id: userId }
+        });
+
+        await this.apiRepository.save(newApi);
+
+        return { successMessage: 'Yay you did it!' };
     }
 
     async getApis(userId: string) {
