@@ -82,40 +82,24 @@ export class CheckerService implements OnModuleInit {
     }
 
     async addApi(apiData: ApiDto, userId: string) {
-        const {
-            name,
-            url,
-            slowThresholdMs,
-            errorsToAlert,
-            requestMethod,
-            intervalMinutes,
-            statusField,
-            errorStatusMessage
-        } = apiData;
+        const { url } = apiData;
 
-        const apiAlreadyThere = await this.apiRepository.find({
-            where: { user: { id: userId }, name: name }
+        const apiAlreadyThere = await this.apiRepository.exists({
+            where: { user: { id: userId }, url }
         });
 
         if (apiAlreadyThere) {
-            throw new BadRequestException('Yo bro you already have this API big dawg!');
+            throw new BadRequestException('API already being checked');
         }
 
         const newApi = this.apiRepository.create({
-            name,
-            url,
-            slowThresholdMs,
-            errorsToAlert,
-            requestMethod,
-            intervalMinutes,
-            statusField,
-            errorStatusMessage,
+            ...apiData,
             user: { id: userId }
         });
 
         await this.apiRepository.save(newApi);
 
-        return { successMessage: 'Yay you did it!' };
+        return { successMessage: 'Successfully added the database   ' };
     }
 
     async getApis(userId: string) {
