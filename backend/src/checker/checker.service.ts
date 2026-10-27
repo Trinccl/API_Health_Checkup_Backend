@@ -36,8 +36,8 @@ export class CheckerService implements OnModuleInit {
     ) {}
 
     async onModuleInit() {
-        console.log('init not implemented');
-        //schedule all crons? ig?
+        const apis = await this.apiRepository.find();
+        apis.forEach((api) => this.scheduleApiCron(api));
     }
 
     async ping(url: string, requestMethod: HttpMethod = 'GET'): Promise<{ time: number }> {
@@ -85,7 +85,93 @@ export class CheckerService implements OnModuleInit {
     }
 
     async runCheck(apiId: string) {
-        throw new Error('Method not implemented.');
+        const api = await this.apiRepository.findOneBy({ id: apiId });
+
+        if (!api) {
+            this.removeCron(apiId);
+            return;
+        }
+
+        const result = await this.check(api.url, api.requestMethod as HttpMethod);
+
+        let status: ApiStatus;
+        let error = result.error;
+
+        if (!result.ok) {
+            status = 'DOWN';
+        } else if ((result.responseTimeMs as number) > api.slowThresholdMs) {
+            status = 'SLOW';
+            error = `Slow response: ${Math.round(result.responseTimeMs as number)}ms (threshold ${api.slowThresholdMs}ms)`;
+        } else {
+            status = 'UP';
+        }
+
+        const failures = status === 'DOWN' ? api.consecutiveFailures + 1 : 0;
+        const slowChecks = status === 'SLOW' ? api.consecutiveSlowChecks + 1 : 0;
+
+        const downAlertWasSent = api.consecutiveFailures >= api.errorsToAlert;
+        const slowAlertWasSent = api.consecutiveSlowChecks >= api.errorsToAlert;
+
+        await this.apiLogRepository.save(
+            this.apiLogRepository.create({
+                api,
+                status,
+                statusCode: result.statusCode,
+                responseTimeMs: result.responseTimeMs,
+                error
+            })
+        );
+
+        if (
+            api.status !== status ||
+            api.consecutiveFailures !== failures ||
+            api.consecutiveSlowChecks !== slowChecks
+        ) {
+            await this.apiRepository.update(api.id, {
+                status,
+                consecutiveFailures: failures,
+                consecutiveSlowChecks: slowChecks
+            });
+        }
+
+        if (status === 'DOWN') {
+            this.alertIfNeeded(api, failures);
+        } else if (downAlertWasSent) {
+            this.logger.log(
+                `RECOVERED: [${api.name}] is ${status} again after ${api.consecutiveFailures} failed checks`
+            );
+            // TODO: notification
+        }
+
+        if (status === 'SLOW') {
+            this.slowWarningIfNeeded(api, slowChecks, result.responseTimeMs as number);
+        } else if (status === 'UP' && slowAlertWasSent) {
+            this.logger.log(
+                `RECOVERED: [${api.name}] is back to normal speed after ${api.consecutiveSlowChecks} slow checks`
+            );
+            // TODO: notification
+        }
+    }
+
+    private slowWarningIfNeeded(api: Api, slowChecks: number, responseTimeMs: number) {
+        if (slowChecks % api.errorsToAlert !== 0) {
+            return;
+        }
+
+        this.logger.warn(
+            `WARNING: [${api.name}] was slow ${slowChecks} times in a row ` +
+                `(last: ${Math.round(responseTimeMs)}ms, threshold: ${api.slowThresholdMs}ms)`
+        );
+        // TODO: alert
+    }
+
+    private alertIfNeeded(api: Api, failures: number) {
+        if (failures % api.errorsToAlert !== 0) {
+            return;
+        }
+
+        this.logger.warn(`ALERT: [${api.name}] failed ${failures} times in a row`);
+        // TODO: alert
     }
 
     async addApi(apiData: ApiDto, userId: string) {
@@ -109,7 +195,7 @@ export class CheckerService implements OnModuleInit {
 
         const savedApi = await this.apiRepository.save(newApi);
 
-        // TODO: schedule cron for savedApi
+        this.scheduleApiCron(savedApi);
 
         return savedApi;
     }
@@ -154,7 +240,7 @@ export class CheckerService implements OnModuleInit {
         const savedApi = await this.apiRepository.save(api);
 
         if (intervalChanged) {
-            // schedule cron
+            this.scheduleApiCron(savedApi);
         }
 
         return savedApi;
@@ -163,7 +249,7 @@ export class CheckerService implements OnModuleInit {
     async deleteApi(id: string, userId: string) {
         const api = await this.getApi(id, userId);
 
-        // remove cron
+        this.removeCron(api.id);
 
         await this.apiRepository.remove(api);
     }
@@ -189,5 +275,31 @@ export class CheckerService implements OnModuleInit {
         });
 
         return { items, total, limit, offset };
+    }
+
+    removeCron(apiId: string) {
+        const jobName = `cron-api-${apiId}`;
+
+        if (this.schedulerRegistry.doesExist('cron', jobName)) {
+            this.schedulerRegistry.deleteCronJob(jobName);
+        }
+    }
+
+    scheduleApiCron(api: Api) {
+        const { id, name, intervalMinutes } = api;
+        const jobName = `cron-api-${id}`;
+
+        this.removeCron(id);
+
+        const cronExpression = `*/${intervalMinutes} * * * *`;
+
+        const job = new CronJob(cronExpression, async () => {
+            await this.runCheck(id).catch((e) => this.logger.error(e));
+        });
+
+        this.schedulerRegistry.addCronJob(jobName, job);
+        job.start();
+
+        console.log(`Scheduled cron job for [${name}] with expression: ${cronExpression}`);
     }
 }
