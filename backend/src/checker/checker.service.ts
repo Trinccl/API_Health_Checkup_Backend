@@ -89,8 +89,10 @@ export class CheckerService implements OnModuleInit {
     }
 
     async addApi(apiData: ApiDto, userId: string) {
+        const { url, requestMethod } = apiData;
+
         const apiExists = await this.apiRepository.exists({
-            where: { user: { id: userId }, url: apiData.url, requestMethod: apiData.requestMethod }
+            where: { user: { id: userId }, url, requestMethod }
         });
 
         if (apiExists) {
