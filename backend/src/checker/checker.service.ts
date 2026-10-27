@@ -37,6 +37,7 @@ export class CheckerService implements OnModuleInit {
 
     async onModuleInit() {
         console.log('init not implemented');
+        //schedule all crons? ig?
     }
 
     async ping(url: string, requestMethod: HttpMethod = 'GET'): Promise<{ time: number }> {
@@ -65,14 +66,20 @@ export class CheckerService implements OnModuleInit {
                 error: response.ok ? null : `HTTP ${response.status}`
             };
         } catch (e: any) {
+            let error: string;
+            if (e?.name === 'TimeoutError') {
+                error = `Timeout after ${REQUEST_TIMEOUT_MS}ms`;
+            } else if (e?.message) {
+                error = e.message;
+            } else {
+                error = 'Unknown error';
+            }
+
             return {
                 ok: false,
                 statusCode: null,
                 responseTimeMs: null,
-                error:
-                    e?.name === 'TimeoutError'
-                        ? `Timeout after ${REQUEST_TIMEOUT_MS}ms`
-                        : (e?.message ?? 'Unknown error')
+                error
             };
         }
     }
@@ -82,40 +89,27 @@ export class CheckerService implements OnModuleInit {
     }
 
     async addApi(apiData: ApiDto, userId: string) {
-        const {
-            name,
-            url,
-            slowThresholdMs,
-            errorsToAlert,
-            requestMethod,
-            intervalMinutes,
-            statusField,
-            errorStatusMessage
-        } = apiData;
-
-        const apiAlreadyThere = await this.apiRepository.find({
-            where: { user: { id: userId }, name: name }
+        const apiExists = await this.apiRepository.exists({
+            where: { user: { id: userId }, url: apiData.url, requestMethod: apiData.requestMethod }
         });
 
-        if (apiAlreadyThere) {
-            throw new BadRequestException('Yo bro you already have this API big dawg!');
+        if (apiExists) {
+            throw new BadRequestException(
+                `Api ${apiData.requestMethod} check for url: ${apiData.url} already exists`
+            );
         }
 
         const newApi = this.apiRepository.create({
-            name,
-            url,
-            slowThresholdMs,
-            errorsToAlert,
-            requestMethod,
-            intervalMinutes,
-            statusField,
-            errorStatusMessage,
+            ...apiData,
+            status: 'UNKNOWN',
             user: { id: userId }
         });
 
-        await this.apiRepository.save(newApi);
+        const savedApi = await this.apiRepository.save(newApi);
 
-        return { successMessage: 'Yay you did it!' };
+        // TODO: schedule cron for savedApi
+
+        return savedApi;
     }
 
     async getApis(userId: string) {
@@ -138,14 +132,60 @@ export class CheckerService implements OnModuleInit {
     }
 
     async updateApi(id: string, userId: string, apiData: UpdateApiDto) {
-        throw new Error('Method not implemented.');
+        const api = await this.getApi(id, userId);
+
+        const targetChanged =
+            (apiData.url !== undefined && apiData.url !== api.url) ||
+            (apiData.requestMethod !== undefined && apiData.requestMethod !== api.requestMethod);
+        const intervalChanged =
+            apiData.intervalMinutes !== undefined &&
+            apiData.intervalMinutes !== api.intervalMinutes;
+
+        Object.assign(api, apiData);
+
+        if (targetChanged) {
+            api.status = 'UNKNOWN';
+            api.consecutiveFailures = 0;
+            api.consecutiveSlowChecks = 0;
+        }
+
+        const savedApi = await this.apiRepository.save(api);
+
+        if (intervalChanged) {
+            // schedule cron
+        }
+
+        return savedApi;
     }
 
     async deleteApi(id: string, userId: string) {
-        throw new Error('Method not implemented.');
+        const api = await this.getApi(id, userId);
+
+        // remove cron
+
+        await this.apiRepository.remove(api);
     }
 
     async getLogs(id: string, userId: string, query: LogsQueryDto) {
-        throw new Error('Method not implemented.');
+        await this.getApi(id, userId);
+
+        const { limit, offset, status } = query;
+
+        const where: any = {
+            api: { id }
+        };
+
+        if (status) {
+            where.status = status;
+        }
+
+        const [items, total] = await this.apiLogRepository.findAndCount({
+            where,
+            order: { createdAt: 'DESC' },
+            take: limit,
+            skip: offset
+        });
+
+        return { items, total, limit, offset };
     }
 }
