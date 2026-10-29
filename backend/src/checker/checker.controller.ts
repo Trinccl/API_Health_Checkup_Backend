@@ -19,11 +19,15 @@ import { ApiDto } from './dtos/api.dto';
 import { UpdateApiDto } from './dtos/update-api.dto';
 import { LogsQueryDto } from './dtos/logs-query.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { NotificationService } from '../notification/notification.service';
 
 @Controller('checker')
 @UseGuards(AuthGuard)
 export class CheckerController {
-    constructor(private readonly checkerService: CheckerService) {}
+    constructor(
+        private readonly checkerService: CheckerService,
+        private readonly notifications: NotificationService
+    ) {}
 
     @Post('ping')
     async ping(@Body() url: UrlDto) {
@@ -67,5 +71,11 @@ export class CheckerController {
         @CurrentUser() user: any
     ) {
         return this.checkerService.getLogs(id, user.sub, query);
+    }
+
+    @Post('test-email')
+    @HttpCode(HttpStatus.OK)
+    async testEmail(@CurrentUser() user: any) {
+        return this.notifications.sendTestEmail(user.email);
     }
 }

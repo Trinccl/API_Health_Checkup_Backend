@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Api } from './schemas/api.entity';
 import { ApiLog } from './schemas/api-log.entity';
+import { NotificationService } from '../notification/notification.service';
 
 @Module({
     imports: [
@@ -19,6 +20,6 @@ import { ApiLog } from './schemas/api-log.entity';
         })
     ],
     controllers: [CheckerController],
-    providers: [CheckerService]
+    providers: [CheckerService, NotificationService]
 })
 export class CheckerModule {}

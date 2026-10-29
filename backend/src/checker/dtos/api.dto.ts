@@ -1,4 +1,14 @@
-import { IsIn, IsInt, IsNumber, IsString, IsUrl, Max, Min } from 'class-validator';
+import {
+    IsBoolean,
+    IsIn,
+    IsInt,
+    IsNumber,
+    IsOptional,
+    IsString,
+    IsUrl,
+    Max,
+    Min
+} from 'class-validator';
 import { REQUEST_TIMEOUT_MS } from '../checker.constants';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD';
@@ -29,4 +39,12 @@ export class ApiDto {
     @Max(59)
     @IsInt()
     intervalMinutes: number;
+
+    @IsOptional()
+    @IsBoolean()
+    alertOnDown?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    alertOnSlow?: boolean;
 }

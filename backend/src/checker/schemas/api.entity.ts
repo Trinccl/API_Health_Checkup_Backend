@@ -25,6 +25,12 @@ export class Api {
     @Column({ nullable: false })
     intervalMinutes: number;
 
+    @Column({ default: true })
+    alertOnDown: boolean;
+
+    @Column({ default: true })
+    alertOnSlow: boolean;
+
     @Column({ default: 'UNKNOWN' })
     status: string; // 'UP' | 'SLOW' | 'DOWN' | 'UNKNOWN'
 

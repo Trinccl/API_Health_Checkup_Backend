@@ -15,6 +15,7 @@ import { Repository } from 'typeorm';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { ApiStatus, REQUEST_TIMEOUT_MS } from './checker.constants';
+import { NotificationService } from '../notification/notification.service';
 
 type CheckResult = {
     ok: boolean;
@@ -32,7 +33,8 @@ export class CheckerService implements OnModuleInit {
         private apiRepository: Repository<Api>,
         @InjectRepository(ApiLog)
         private apiLogRepository: Repository<ApiLog>,
-        private readonly schedulerRegistry: SchedulerRegistry
+        private readonly schedulerRegistry: SchedulerRegistry,
+        private readonly notifications: NotificationService
     ) {}
 
     async onModuleInit() {
@@ -85,7 +87,10 @@ export class CheckerService implements OnModuleInit {
     }
 
     async runCheck(apiId: string) {
-        const api = await this.apiRepository.findOneBy({ id: apiId });
+        const api = await this.apiRepository.findOne({
+            where: { id: apiId },
+            relations: { user: true }
+        });
 
         if (!api) {
             this.removeCron(apiId);
@@ -135,21 +140,25 @@ export class CheckerService implements OnModuleInit {
         }
 
         if (status === 'DOWN') {
-            this.alertIfNeeded(api, failures);
-        } else if (downAlertWasSent) {
+            if (api.alertOnDown) {
+                this.alertIfNeeded(api, failures, error);
+            }
+        } else if (downAlertWasSent && api.alertOnDown) {
             this.logger.log(
                 `RECOVERED: [${api.name}] is ${status} again after ${api.consecutiveFailures} failed checks`
             );
-            // TODO: notification
+            void this.notifications.sendRecovered(api, status, api.consecutiveFailures);
         }
 
         if (status === 'SLOW') {
-            this.slowWarningIfNeeded(api, slowChecks, result.responseTimeMs as number);
-        } else if (status === 'UP' && slowAlertWasSent) {
+            if (api.alertOnSlow) {
+                this.slowWarningIfNeeded(api, slowChecks, result.responseTimeMs as number);
+            }
+        } else if (status === 'UP' && slowAlertWasSent && api.alertOnSlow) {
             this.logger.log(
                 `RECOVERED: [${api.name}] is back to normal speed after ${api.consecutiveSlowChecks} slow checks`
             );
-            // TODO: notification
+            void this.notifications.sendSlowRecovered(api, api.consecutiveSlowChecks);
         }
     }
 
@@ -162,16 +171,16 @@ export class CheckerService implements OnModuleInit {
             `WARNING: [${api.name}] was slow ${slowChecks} times in a row ` +
                 `(last: ${Math.round(responseTimeMs)}ms, threshold: ${api.slowThresholdMs}ms)`
         );
-        // TODO: alert
+        void this.notifications.sendSlowWarning(api, slowChecks, responseTimeMs);
     }
 
-    private alertIfNeeded(api: Api, failures: number) {
+    private alertIfNeeded(api: Api, failures: number, lastError: string | null) {
         if (failures % api.errorsToAlert !== 0) {
             return;
         }
 
         this.logger.warn(`ALERT: [${api.name}] failed ${failures} times in a row`);
-        // TODO: alert
+        void this.notifications.sendDownAlert(api, failures, lastError);
     }
 
     async addApi(apiData: ApiDto, userId: string) {
@@ -195,7 +204,7 @@ export class CheckerService implements OnModuleInit {
 
         const savedApi = await this.apiRepository.save(newApi);
 
-        this.scheduleApiCron(savedApi);
+        this.scheduleApiCron(savedApi, true);
 
         return savedApi;
     }
@@ -285,7 +294,7 @@ export class CheckerService implements OnModuleInit {
         }
     }
 
-    scheduleApiCron(api: Api) {
+    scheduleApiCron(api: Api, runImmediately = false) {
         const { id, name, intervalMinutes } = api;
         const jobName = `cron-api-${id}`;
 
@@ -293,12 +302,15 @@ export class CheckerService implements OnModuleInit {
 
         const cronExpression = `*/${intervalMinutes} * * * *`;
 
-        const job = new CronJob(cronExpression, async () => {
-            await this.runCheck(id).catch((e) => this.logger.error(e));
-        });
+        const tick = () => this.runCheck(id).catch((e) => this.logger.error(e));
+        const job = new CronJob(cronExpression, tick);
 
         this.schedulerRegistry.addCronJob(jobName, job);
         job.start();
+
+        if (runImmediately) {
+            void tick();
+        }
 
         console.log(`Scheduled cron job for [${name}] with expression: ${cronExpression}`);
     }
