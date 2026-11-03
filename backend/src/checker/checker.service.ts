@@ -14,7 +14,13 @@ import { ApiLog } from './schemas/api-log.entity';
 import { Repository } from 'typeorm';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { ApiStatus, REQUEST_TIMEOUT_MS } from './checker.constants';
+import { UrlDto } from './dtos/url.dto';
+import {
+    ApiStatus,
+    METHODS_WITHOUT_REQUEST_BODY,
+    METHODS_WITHOUT_RESPONSE_BODY,
+    REQUEST_TIMEOUT_MS
+} from './checker.constants';
 import { NotificationService } from '../notification/notification.service';
 
 type CheckResult = {
@@ -42,30 +48,97 @@ export class CheckerService implements OnModuleInit {
         apis.forEach((api) => this.scheduleApiCron(api));
     }
 
-    async ping(url: string, requestMethod: HttpMethod = 'GET'): Promise<{ time: number }> {
-        const result = await this.check(url, requestMethod);
+    async ping(dto: UrlDto): Promise<{ time: number }> {
+        const method = dto.requestMethod ?? 'GET';
+        const requestBody = dto.requestBody ?? null;
+        const expectedBody = dto.expectedBody ?? null;
+
+        this.assertBodyRules(method, requestBody, expectedBody);
+
+        const result = await this.check(dto.url, method, requestBody, expectedBody);
 
         if (!result.ok) {
-            throw new BadRequestException(['url must be a reachable URL address']);
+            throw new BadRequestException([result.error ?? 'url must be a reachable URL address']);
         }
 
         return { time: result.responseTimeMs as number };
     }
 
-    private async check(url: string, method: HttpMethod): Promise<CheckResult> {
+    // Rejects body options that make no sense for the chosen HTTP method.
+    private assertBodyRules(
+        method: string,
+        requestBody: string | null | undefined,
+        expectedBody: string | null | undefined
+    ) {
+        const errors: string[] = [];
+
+        if (requestBody && METHODS_WITHOUT_REQUEST_BODY.includes(method)) {
+            errors.push(`requestBody is not allowed for ${method} requests`);
+        }
+        if (expectedBody && METHODS_WITHOUT_RESPONSE_BODY.includes(method)) {
+            errors.push(`expectedBody cannot be used with ${method} requests (no response body)`);
+        }
+
+        if (errors.length) {
+            throw new BadRequestException(errors);
+        }
+    }
+
+    private buildRequestInit(method: HttpMethod, requestBody?: string | null): RequestInit {
+        const init: RequestInit = {
+            method,
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+        };
+
+        if (requestBody && !METHODS_WITHOUT_REQUEST_BODY.includes(method)) {
+            init.body = requestBody;
+            init.headers = {
+                'Content-Type': this.isJson(requestBody) ? 'application/json' : 'text/plain'
+            };
+        }
+
+        return init;
+    }
+
+    private isJson(value: string): boolean {
+        try {
+            JSON.parse(value);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    private async check(
+        url: string,
+        method: HttpMethod,
+        requestBody?: string | null,
+        expectedBody?: string | null
+    ): Promise<CheckResult> {
         const start = performance.now();
 
         try {
-            const response = await fetch(url, {
-                method,
-                signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-            });
+            const response = await fetch(url, this.buildRequestInit(method, requestBody));
+
+            let ok = response.ok;
+            let error = response.ok ? null : `HTTP ${response.status}`;
+
+            if (ok && expectedBody) {
+                const body = await response.text();
+                if (!body.includes(expectedBody)) {
+                    ok = false;
+                    error = 'Response body did not contain expected text';
+                }
+            } else {
+                // Not reading the body: release the connection
+                await response.body?.cancel().catch(() => undefined);
+            }
 
             return {
-                ok: response.ok,
+                ok,
                 statusCode: response.status,
                 responseTimeMs: performance.now() - start,
-                error: response.ok ? null : `HTTP ${response.status}`
+                error
             };
         } catch (e: any) {
             let error: string;
@@ -97,13 +170,20 @@ export class CheckerService implements OnModuleInit {
             return;
         }
 
-        const result = await this.check(api.url, api.requestMethod as HttpMethod);
+        const result = await this.check(
+            api.url,
+            api.requestMethod as HttpMethod,
+            api.requestBody,
+            api.expectedBody
+        );
 
         let status: ApiStatus;
         let error = result.error;
 
-        if (!result.ok) {
+        if (!result.ok && !result.responseTimeMs) {
             status = 'DOWN';
+        } else if (!result.ok && result.responseTimeMs) {
+            status = 'ERROR';
         } else if ((result.responseTimeMs as number) > api.slowThresholdMs) {
             status = 'SLOW';
             error = `Slow response: ${Math.round(result.responseTimeMs as number)}ms (threshold ${api.slowThresholdMs}ms)`;
@@ -184,7 +264,9 @@ export class CheckerService implements OnModuleInit {
     }
 
     async addApi(apiData: ApiDto, userId: string) {
-        const { url, requestMethod } = apiData;
+        const { url, requestMethod, requestBody, expectedBody } = apiData;
+
+        this.assertBodyRules(requestMethod, requestBody, expectedBody);
 
         const apiExists = await this.apiRepository.exists({
             where: { user: { id: userId }, url, requestMethod }
@@ -197,7 +279,7 @@ export class CheckerService implements OnModuleInit {
         }
 
         const newApi = this.apiRepository.create({
-            ...apiData,
+            ...apiData, 
             status: 'UNKNOWN',
             user: { id: userId }
         });
@@ -231,9 +313,18 @@ export class CheckerService implements OnModuleInit {
     async updateApi(id: string, userId: string, apiData: UpdateApiDto) {
         const api = await this.getApi(id, userId);
 
+        // Validate the resulting state, not just the patch (e.g. method -> GET while a body is stored)
+        this.assertBodyRules(
+            apiData.requestMethod ?? api.requestMethod,
+            apiData.requestBody !== undefined ? apiData.requestBody : api.requestBody,
+            apiData.expectedBody !== undefined ? apiData.expectedBody : api.expectedBody
+        );
+
         const targetChanged =
             (apiData.url !== undefined && apiData.url !== api.url) ||
-            (apiData.requestMethod !== undefined && apiData.requestMethod !== api.requestMethod);
+            (apiData.requestMethod !== undefined && apiData.requestMethod !== api.requestMethod) ||
+            (apiData.requestBody !== undefined && apiData.requestBody !== api.requestBody) ||
+            (apiData.expectedBody !== undefined && apiData.expectedBody !== api.expectedBody);
         const intervalChanged =
             apiData.intervalMinutes !== undefined &&
             apiData.intervalMinutes !== api.intervalMinutes;

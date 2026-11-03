@@ -10,7 +10,7 @@ export class ApiLog {
     createdAt: Date;
 
     @Column()
-    status: string; // 'UP' | 'DOWN' | 'SLOW'
+    status: string; // 'UP' | 'SLOW' | 'DOWN' | 'ERROR'
 
     @Column({ type: 'int', nullable: true })
     statusCode: number | null;

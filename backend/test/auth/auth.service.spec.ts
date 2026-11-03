@@ -14,7 +14,8 @@ describe('AuthService', () => {
     const userRepository = {
         findOneBy: jest.fn(),
         create: jest.fn(),
-        save: jest.fn()
+        save: jest.fn(),
+        delete: jest.fn()
     };
     const jwtService = {
         signAsync: jest.fn()
@@ -155,6 +156,33 @@ describe('AuthService', () => {
             const wrongPassword = await service.login(loginData).catch((e) => e);
 
             expect(unknownUser.message).toBe(wrongPassword.message);
+        });
+    });
+
+    describe('deleteUserById', () => {
+        it('deletes an existing user and returns the delete result', async () => {
+            const deleteResult = { affected: 1, raw: [] };
+            userRepository.findOneBy.mockResolvedValue({ id: 'user-id' });
+            userRepository.delete.mockResolvedValue(deleteResult);
+
+            await expect(service.deleteUserById('user-id')).resolves.toEqual(deleteResult);
+            expect(userRepository.findOneBy).toHaveBeenCalledWith({ id: 'user-id' });
+            expect(userRepository.delete).toHaveBeenCalledWith('user-id');
+        });
+
+        it('throws BadRequestException when the user does not exist', async () => {
+            userRepository.findOneBy.mockResolvedValue(null);
+
+            await expect(service.deleteUserById('missing')).rejects.toThrow(
+                new BadRequestException('User does not exist')
+            );
+            expect(userRepository.delete).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('checkToken', () => {
+        it('confirms the token is correct', async () => {
+            await expect(service.checkToken()).resolves.toEqual({ result: 'Token correct' });
         });
     });
 });

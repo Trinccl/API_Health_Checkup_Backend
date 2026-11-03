@@ -31,7 +31,7 @@ export class CheckerController {
 
     @Post('ping')
     async ping(@Body() url: UrlDto) {
-        return this.checkerService.ping(url.url);
+        return this.checkerService.ping(url);
     }
 
     @Post('apis')

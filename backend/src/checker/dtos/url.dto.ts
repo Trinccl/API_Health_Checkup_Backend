@@ -1,6 +1,9 @@
-import { IsUrl, IsOptional, IsIn } from 'class-validator';
+import { IsUrl, IsOptional, IsIn, IsString, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
 
+import { emptyToNull } from './api.dto';
 import type { HttpMethod } from './api.dto';
+import { MAX_EXPECTED_BODY_LENGTH, MAX_REQUEST_BODY_LENGTH } from '../checker.constants';
 
 export class UrlDto {
     @IsUrl()
@@ -11,5 +14,17 @@ export class UrlDto {
         message:
             'Method must be a valid HTTP request method (GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD)'
     })
-    requestMethod: HttpMethod;
+    requestMethod?: HttpMethod;
+
+    @IsOptional()
+    @Transform(emptyToNull)
+    @MaxLength(MAX_REQUEST_BODY_LENGTH)
+    @IsString()
+    requestBody?: string | null;
+
+    @IsOptional()
+    @Transform(emptyToNull)
+    @MaxLength(MAX_EXPECTED_BODY_LENGTH)
+    @IsString()
+    expectedBody?: string | null;
 }

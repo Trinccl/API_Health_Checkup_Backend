@@ -25,6 +25,12 @@ export class Api {
     @Column({ nullable: false })
     intervalMinutes: number;
 
+    @Column({ type: 'text', nullable: true })
+    requestBody: string | null;
+
+    @Column({ type: 'text', nullable: true })
+    expectedBody: string | null;
+
     @Column({ default: true })
     alertOnDown: boolean;
 
@@ -32,7 +38,7 @@ export class Api {
     alertOnSlow: boolean;
 
     @Column({ default: 'UNKNOWN' })
-    status: string; // 'UP' | 'SLOW' | 'DOWN' | 'UNKNOWN'
+    status: string; // 'UP' | 'SLOW' | 'DOWN' | 'ERROR | 'UNKNOWN'
 
     @Column({ default: 0 })
     consecutiveFailures: number;
