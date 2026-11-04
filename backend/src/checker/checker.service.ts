@@ -57,7 +57,13 @@ export class CheckerService implements OnModuleInit {
 
         this.assertBodyRules(method, requestBody, expectedBody);
 
-        const result = await this.check(dto.url, method, requestBody, expectedBody);
+        const result = await this.check(
+            dto.url,
+            method,
+            requestBody,
+            expectedBody,
+            dto.requestHeaders ?? null
+        );
 
         if (!result.ok) {
             throw new BadRequestException([result.error ?? 'url must be a reachable URL address']);
@@ -86,18 +92,29 @@ export class CheckerService implements OnModuleInit {
         }
     }
 
-    private buildRequestInit(method: HttpMethod, requestBody?: string | null): RequestInit {
+    private buildRequestInit(
+        method: HttpMethod,
+        requestBody?: string | null,
+        requestHeaders?: Record<string, string> | null
+    ): RequestInit {
         const init: RequestInit = {
             method,
             signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
         };
 
+        const headers = new Headers(requestHeaders ?? {});
+
         if (requestBody && !METHODS_WITHOUT_REQUEST_BODY.includes(method)) {
             init.body = requestBody;
-            init.headers = {
-                'Content-Type': this.isJson(requestBody) ? 'application/json' : 'text/plain'
-            };
+            if (!headers.has('content-type')) {
+                headers.set(
+                    'content-type',
+                    this.isJson(requestBody) ? 'application/json' : 'text/plain'
+                );
+            }
         }
+
+        init.headers = headers;
 
         return init;
     }
@@ -115,12 +132,16 @@ export class CheckerService implements OnModuleInit {
         url: string,
         method: HttpMethod,
         requestBody?: string | null,
-        expectedBody?: string | null
+        expectedBody?: string | null,
+        requestHeaders?: Record<string, string> | null
     ): Promise<CheckResult> {
         const start = performance.now();
 
         try {
-            const response = await fetch(url, this.buildRequestInit(method, requestBody));
+            const response = await fetch(
+                url,
+                this.buildRequestInit(method, requestBody, requestHeaders)
+            );
             const responseTimeMs = performance.now() - start;
             let ok = response.ok;
             let error = response.ok ? null : `HTTP ${response.status}`;
@@ -184,7 +205,8 @@ export class CheckerService implements OnModuleInit {
             api.url,
             api.requestMethod as HttpMethod,
             api.requestBody,
-            api.expectedBody
+            api.expectedBody,
+            api.requestHeaders
         );
 
         let status: ApiStatus;
@@ -339,9 +361,13 @@ export class CheckerService implements OnModuleInit {
             apiData.intervalMinutes !== undefined &&
             apiData.intervalMinutes !== api.intervalMinutes;
 
+        const headersChanged =
+            apiData.requestHeaders !== undefined &&
+            JSON.stringify(apiData.requestHeaders) !== JSON.stringify(api.requestHeaders);
+
         Object.assign(api, apiData);
 
-        if (targetChanged && api.enabled) {
+        if ((targetChanged || headersChanged) && api.enabled) {
             api.status = 'UNKNOWN';
             api.consecutiveFailures = 0;
             api.consecutiveSlowChecks = 0;

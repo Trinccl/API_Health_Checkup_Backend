@@ -1,4 +1,4 @@
-import { IsUrl, IsOptional, IsIn, IsString, MaxLength } from 'class-validator';
+import { IsUrl, IsOptional, IsIn, IsString, MaxLength, IsObject } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 import { emptyToNull } from './api.dto';
@@ -27,4 +27,8 @@ export class UrlDto {
     @MaxLength(MAX_EXPECTED_BODY_LENGTH)
     @IsString()
     expectedBody?: string | null;
+
+    @IsOptional()
+    @IsObject()
+    requestHeaders?: Record<string, string> | null;
 }

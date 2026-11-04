@@ -9,7 +9,8 @@ import {
     IsUrl,
     Max,
     MaxLength,
-    Min
+    Min,
+    IsObject
 } from 'class-validator';
 import {
     MAX_EXPECTED_BODY_LENGTH,
@@ -70,4 +71,8 @@ export class ApiDto {
     @MaxLength(MAX_EXPECTED_BODY_LENGTH)
     @IsString()
     expectedBody?: string | null;
+
+    @IsOptional()
+    @IsObject()
+    requestHeaders?: Record<string, string> | null;
 }

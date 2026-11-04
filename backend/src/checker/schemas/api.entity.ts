@@ -31,6 +31,9 @@ export class Api {
     @Column({ type: 'text', nullable: true })
     expectedBody: string | null;
 
+    @Column({ type: 'jsonb', nullable: true })
+    requestHeaders: Record<string, string> | null;
+
     @Column({ default: true })
     alertOnDown: boolean;
 
