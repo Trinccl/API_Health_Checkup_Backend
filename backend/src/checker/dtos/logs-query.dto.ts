@@ -16,6 +16,6 @@ export class LogsQueryDto {
     offset: number = 0;
 
     @IsOptional()
-    @IsIn(['UP', 'SLOW', 'DOWN'])
-    status?: 'UP' | 'SLOW' | 'DOWN';
+    @IsIn(['UP', 'SLOW', 'DOWN', 'ERROR'])
+    status?: 'UP' | 'SLOW' | 'DOWN' | 'ERROR';
 }

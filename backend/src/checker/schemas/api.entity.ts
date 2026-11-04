@@ -37,8 +37,11 @@ export class Api {
     @Column({ default: true })
     alertOnSlow: boolean;
 
+    @Column({ default: true })
+    enabled: boolean;
+
     @Column({ default: 'UNKNOWN' })
-    status: string; // 'UP' | 'SLOW' | 'DOWN' | 'ERROR | 'UNKNOWN'
+    status: string; // 'UP' | 'SLOW' | 'DOWN' | 'ERROR' | 'UNKNOWN' | 'PAUSED'
 
     @Column({ default: 0 })
     consecutiveFailures: number;

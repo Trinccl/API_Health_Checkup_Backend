@@ -73,6 +73,25 @@ export class CheckerController {
         return this.checkerService.getLogs(id, user.sub, query);
     }
 
+    @Get('apis/:id/logs/:logId')
+    async getLog(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Param('logId', ParseUUIDPipe) logId: string,
+        @CurrentUser() user: any
+    ) {
+        return this.checkerService.getLog(id, logId, user.sub);
+    }
+
+    @Post('apis/:id/pause')
+    async pauseApi(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+        return this.checkerService.pauseApi(id, user.sub);
+    }
+
+    @Post('apis/:id/resume')
+    async resume(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+        return this.checkerService.resumeApi(id, user.sub);
+    }
+
     @Post('test-email')
     @HttpCode(HttpStatus.OK)
     async testEmail(@CurrentUser() user: any) {

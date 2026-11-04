@@ -17,6 +17,7 @@ import { CronJob } from 'cron';
 import { UrlDto } from './dtos/url.dto';
 import {
     ApiStatus,
+    MAX_EXPECTED_BODY_LENGTH,
     METHODS_WITHOUT_REQUEST_BODY,
     METHODS_WITHOUT_RESPONSE_BODY,
     REQUEST_TIMEOUT_MS
@@ -27,6 +28,7 @@ type CheckResult = {
     ok: boolean;
     statusCode: number | null;
     responseTimeMs: number | null;
+    responseBody: string | null;
     error: string | null;
 };
 
@@ -44,7 +46,7 @@ export class CheckerService implements OnModuleInit {
     ) {}
 
     async onModuleInit() {
-        const apis = await this.apiRepository.find();
+        const apis = await this.apiRepository.find({ where: { enabled: true } });
         apis.forEach((api) => this.scheduleApiCron(api));
     }
 
@@ -122,9 +124,10 @@ export class CheckerService implements OnModuleInit {
 
             let ok = response.ok;
             let error = response.ok ? null : `HTTP ${response.status}`;
-
+            let responseBody: string | null = null;
             if (ok && expectedBody) {
                 const body = await response.text();
+                responseBody = body;
                 if (!body.includes(expectedBody)) {
                     ok = false;
                     error = 'Response body did not contain expected text';
@@ -138,6 +141,7 @@ export class CheckerService implements OnModuleInit {
                 ok,
                 statusCode: response.status,
                 responseTimeMs: performance.now() - start,
+                responseBody,
                 error
             };
         } catch (e: any) {
@@ -154,6 +158,7 @@ export class CheckerService implements OnModuleInit {
                 ok: false,
                 statusCode: null,
                 responseTimeMs: null,
+                responseBody: null,
                 error
             };
         }
@@ -166,6 +171,11 @@ export class CheckerService implements OnModuleInit {
         });
 
         if (!api) {
+            this.removeCron(apiId);
+            return;
+        }
+
+        if (!api.enabled) {
             this.removeCron(apiId);
             return;
         }
@@ -203,6 +213,7 @@ export class CheckerService implements OnModuleInit {
                 status,
                 statusCode: result.statusCode,
                 responseTimeMs: result.responseTimeMs,
+                responseBody: result.responseBody,
                 error
             })
         );
@@ -212,11 +223,10 @@ export class CheckerService implements OnModuleInit {
             api.consecutiveFailures !== failures ||
             api.consecutiveSlowChecks !== slowChecks
         ) {
-            await this.apiRepository.update(api.id, {
-                status,
-                consecutiveFailures: failures,
-                consecutiveSlowChecks: slowChecks
-            });
+            await this.apiRepository.update(
+                { id: api.id, enabled: true },
+                { status, consecutiveFailures: failures, consecutiveSlowChecks: slowChecks }
+            );
         }
 
         if (status === 'DOWN') {
@@ -279,7 +289,7 @@ export class CheckerService implements OnModuleInit {
         }
 
         const newApi = this.apiRepository.create({
-            ...apiData, 
+            ...apiData,
             status: 'UNKNOWN',
             user: { id: userId }
         });
@@ -331,7 +341,7 @@ export class CheckerService implements OnModuleInit {
 
         Object.assign(api, apiData);
 
-        if (targetChanged) {
+        if (targetChanged && api.enabled) {
             api.status = 'UNKNOWN';
             api.consecutiveFailures = 0;
             api.consecutiveSlowChecks = 0;
@@ -339,7 +349,7 @@ export class CheckerService implements OnModuleInit {
 
         const savedApi = await this.apiRepository.save(api);
 
-        if (intervalChanged) {
+        if (intervalChanged && api.enabled) {
             this.scheduleApiCron(savedApi);
         }
 
@@ -352,6 +362,55 @@ export class CheckerService implements OnModuleInit {
         this.removeCron(api.id);
 
         await this.apiRepository.remove(api);
+    }
+
+    async pauseApi(id: string, userId: string) {
+        const api = await this.getApi(id, userId);
+
+        if (!api.enabled) {
+            return api.enabled;
+        }
+
+        api.enabled = false;
+        api.status = 'PAUSED';
+
+        const saved = await this.apiRepository.save(api);
+        this.removeCron(id);
+
+        return saved;
+    }
+
+    async resumeApi(id: string, userId: string) {
+        const api = await this.getApi(id, userId);
+
+        if (api.enabled) {
+            return api.enabled;
+        }
+
+        api.enabled = true;
+        api.status = 'UNKNOWN';
+
+        const saved = await this.apiRepository.save(api);
+        this.scheduleApiCron(saved, true);
+
+        return saved;
+    }
+
+    async getLog(id: string, logId: string, userId: string) {
+        await this.getApi(id, userId);
+
+        const log = await this.apiLogRepository.findOne({
+            where: {
+                id: logId,
+                api: { id, user: { id: userId } }
+            }
+        });
+
+        if (!log) {
+            throw new NotFoundException('Log not found');
+        }
+
+        return log;
     }
 
     async getLogs(id: string, userId: string, query: LogsQueryDto) {
@@ -369,6 +428,14 @@ export class CheckerService implements OnModuleInit {
 
         const [items, total] = await this.apiLogRepository.findAndCount({
             where,
+            select: {
+                id: true,
+                createdAt: true,
+                status: true,
+                statusCode: true,
+                responseTimeMs: true,
+                error: true
+            },
             order: { createdAt: 'DESC' },
             take: limit,
             skip: offset

@@ -1,6 +1,6 @@
 export const REQUEST_TIMEOUT_MS = 5000;
 
-export type ApiStatus = 'UP' | 'SLOW' | 'DOWN' | 'ERROR' | 'UNKNOWN';
+export type ApiStatus = 'UP' | 'SLOW' | 'DOWN' | 'ERROR' | 'UNKNOWN' | 'PAUSED';
 
 export const MAX_REQUEST_BODY_LENGTH = 10_000;
 export const MAX_EXPECTED_BODY_LENGTH = 1_000;

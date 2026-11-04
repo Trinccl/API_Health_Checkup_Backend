@@ -21,6 +21,9 @@ export class ApiLog {
     @Column({ type: 'text', nullable: true })
     error: string | null;
 
+    @Column({ type: 'text', nullable: true })
+    responseBody: string | null;
+
     @ManyToOne(() => Api, (api) => api.logs, { onDelete: 'CASCADE' })
     api: Api;
 }
