@@ -82,6 +82,11 @@ export class CheckerController {
         return this.checkerService.getLog(id, logId, user.sub);
     }
 
+    @Get('/apis/:id/stats')
+    async getStats(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
+        return this.checkerService.getPercentages(id, user.sub);
+    }
+
     @Post('apis/:id/pause')
     async pauseApi(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
         return this.checkerService.pauseApi(id, user.sub);

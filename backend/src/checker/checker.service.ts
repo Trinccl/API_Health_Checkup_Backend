@@ -121,7 +121,7 @@ export class CheckerService implements OnModuleInit {
 
         try {
             const response = await fetch(url, this.buildRequestInit(method, requestBody));
-
+            const responseTimeMs = performance.now() - start;
             let ok = response.ok;
             let error = response.ok ? null : `HTTP ${response.status}`;
             let responseBody: string | null = null;
@@ -140,7 +140,7 @@ export class CheckerService implements OnModuleInit {
             return {
                 ok,
                 statusCode: response.status,
-                responseTimeMs: performance.now() - start,
+                responseTimeMs: responseTimeMs,
                 responseBody,
                 error
             };
@@ -442,6 +442,22 @@ export class CheckerService implements OnModuleInit {
         });
 
         return { items, total, limit, offset };
+    }
+
+    async getPercentages(id: string, userId: string) {
+        await this.getApi(id, userId);
+
+        const stats = await this.apiLogRepository
+            .createQueryBuilder('log')
+            .select('log.status', 'status')
+            .addSelect('COUNT(*)', 'count')
+            .where('log.apiId = :id', { id })
+            .groupBy('log.status')
+            .getRawMany();
+
+        const total = stats.reduce((sum, item) => sum + Number(item.count), 0);
+
+        return { stats: stats, total: total };
     }
 
     removeCron(apiId: string) {
