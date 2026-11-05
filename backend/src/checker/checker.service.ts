@@ -486,6 +486,22 @@ export class CheckerService implements OnModuleInit {
         return { stats: stats, total: total };
     }
 
+    async getApiPercentages(userId: string) {
+        const stats = await this.apiRepository
+            .createQueryBuilder('api')
+            .innerJoin('api.user', 'user')
+            .select('api.status', 'status')
+            .addSelect('COUNT(*)', 'count')
+            .where('user.id = :userId', { userId })
+            .groupBy('api.status')
+            .orderBy('COUNT(*)', 'DESC')
+            .getRawMany<{ status: string; count: string }>();
+
+        const total = stats.reduce((sum, item) => sum + Number(item.count), 0);
+
+        return { stats, total };
+    }
+
     removeCron(apiId: string) {
         const jobName = `cron-api-${apiId}`;
 

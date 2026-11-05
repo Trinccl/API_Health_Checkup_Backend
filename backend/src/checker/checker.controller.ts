@@ -44,6 +44,11 @@ export class CheckerController {
         return this.checkerService.getApis(user.sub);
     }
 
+    @Get('/apis/apiStats')
+    async getApiStats(@CurrentUser() user: any) {
+        return this.checkerService.getApiPercentages(user.sub);
+    }
+
     @Get('apis/:id')
     async getApi(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
         return this.checkerService.getApi(id, user.sub);
