@@ -119,6 +119,36 @@ export class CheckerService implements OnModuleInit {
         return init;
     }
 
+    // Plain text: substring match. Valid JSON: structural match, so whitespace
+    // and key order don't matter, and the expected JSON may be a subset of the response.
+    private bodyMatches(actual: string, expected: string): boolean {
+        if (actual.includes(expected)) return true;
+
+        try {
+            return this.isSubset(JSON.parse(expected), JSON.parse(actual));
+        } catch {
+            return false; // expected or response isn't JSON
+        }
+    }
+
+    private isSubset(expected: unknown, actual: unknown): boolean {
+        if (expected === null || typeof expected !== 'object') return expected === actual;
+        if (actual === null || typeof actual !== 'object') return false;
+
+        if (Array.isArray(expected)) {
+            return (
+                Array.isArray(actual) &&
+                expected.length === actual.length &&
+                expected.every((v, i) => this.isSubset(v, actual[i]))
+            );
+        }
+        if (Array.isArray(actual)) return false;
+
+        return Object.entries(expected).every(
+            ([k, v]) => k in actual && this.isSubset(v, (actual as Record<string, unknown>)[k])
+        );
+    }
+
     private isJson(value: string): boolean {
         try {
             JSON.parse(value);
@@ -146,16 +176,17 @@ export class CheckerService implements OnModuleInit {
             let ok = response.ok;
             let error = response.ok ? null : `HTTP ${response.status}`;
             let responseBody: string | null = null;
-            if (ok && expectedBody) {
+
+            if (method === 'HEAD') {
+                await response.body?.cancel().catch(() => undefined);
+            } else {
                 const body = await response.text();
-                responseBody = body;
-                if (!body.includes(expectedBody)) {
+                responseBody = body.replace(/\u0000/g, '').slice(0, 5_000);
+
+                if (ok && expectedBody && !this.bodyMatches(body, expectedBody)) {
                     ok = false;
                     error = 'Response body did not contain expected text';
                 }
-            } else {
-                // Not reading the body: release the connection
-                await response.body?.cancel().catch(() => undefined);
             }
 
             return {
@@ -375,8 +406,8 @@ export class CheckerService implements OnModuleInit {
 
         const savedApi = await this.apiRepository.save(api);
 
-        if (intervalChanged && api.enabled) {
-            this.scheduleApiCron(savedApi);
+        if (api.enabled && (intervalChanged || targetChanged || headersChanged)) {
+            this.scheduleApiCron(savedApi, targetChanged || headersChanged);
         }
 
         return savedApi;
