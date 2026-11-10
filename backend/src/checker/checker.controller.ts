@@ -20,6 +20,7 @@ import { UpdateApiDto } from './dtos/update-api.dto';
 import { LogsQueryDto } from './dtos/logs-query.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { NotificationService } from '../notification/notification.service';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('checker')
 @UseGuards(AuthGuard)
@@ -29,6 +30,12 @@ export class CheckerController {
         private readonly notifications: NotificationService
     ) {}
 
+    @Throttle({
+        default: {
+            limit: 5,
+            ttl: 60000
+        }
+    })
     @Post('ping')
     async ping(@Body() url: UrlDto) {
         return this.checkerService.ping(url);

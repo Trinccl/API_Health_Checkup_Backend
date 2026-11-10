@@ -9,6 +9,8 @@ import { CheckerModule } from './checker/checker.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { Api } from './checker/schemas/api.entity';
 import { ApiLog } from './checker/schemas/api-log.entity';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
     imports: [
@@ -25,9 +27,21 @@ import { ApiLog } from './checker/schemas/api-log.entity';
             synchronize: true
         }),
         AuthModule,
-        CheckerModule
+        CheckerModule,
+        ThrottlerModule.forRoot([
+            {
+                ttl: 60000,
+                limit: 60
+            }
+        ])
     ],
     controllers: [AppController],
-    providers: [AppService]
+    providers: [
+        AppService,
+        {
+            provide: APP_GUARD,
+            useClass: ThrottlerGuard
+        }
+    ]
 })
 export class AppModule {}
