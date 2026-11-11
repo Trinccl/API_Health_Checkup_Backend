@@ -114,6 +114,31 @@ export class NotificationService {
         }
     }
 
+    // Never throws: a mail outage must not break signup (the user can request a new link)
+    async sendVerificationEmail(to: string, name: string, link: string) {
+        try {
+            await this.transporter.sendMail({
+                from: this.from,
+                to,
+                subject: 'Confirm your email address',
+                text: [
+                    `Hi ${name},`,
+                    '',
+                    'Confirm your email address to activate your API Health Checkup account:',
+                    '',
+                    link,
+                    '',
+                    'This link expires in 24 hours. If you did not create an account, you can ignore this email.'
+                ].join('\n')
+            });
+        } catch (e) {
+            this.logger.error(
+                `Failed to send verification email to ${to}`,
+                e instanceof Error ? e.stack : e
+            );
+        }
+    }
+
     async sendTestEmail(to: string) {
         try {
             const info = await this.transporter.sendMail({

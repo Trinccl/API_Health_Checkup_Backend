@@ -6,11 +6,12 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Api } from './schemas/api.entity';
 import { ApiLog } from './schemas/api-log.entity';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Api, ApiLog]),
+        NotificationModule,
         JwtModule.registerAsync({
             inject: [ConfigService],
             useFactory: (config: ConfigService) => ({
@@ -20,6 +21,6 @@ import { NotificationService } from '../notification/notification.service';
         })
     ],
     controllers: [CheckerController],
-    providers: [CheckerService, NotificationService]
+    providers: [CheckerService]
 })
 export class CheckerModule {}

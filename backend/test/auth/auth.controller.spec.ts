@@ -12,7 +12,9 @@ describe('AuthController', () => {
         signUp: jest.fn(),
         login: jest.fn(),
         deleteUserById: jest.fn(),
-        checkToken: jest.fn()
+        checkToken: jest.fn(),
+        verifyEmail: jest.fn(),
+        resendVerification: jest.fn()
     };
 
     beforeEach(async () => {
@@ -71,6 +73,36 @@ describe('AuthController', () => {
         });
     });
 
+    describe('verifyEmail', () => {
+        it('delegates the token to AuthService.verifyEmail and returns its result', async () => {
+            const token = 'a'.repeat(64);
+            authService.verifyEmail.mockResolvedValue({ verified: true });
+
+            await expect(controller.verifyEmail({ token })).resolves.toEqual({
+                verified: true
+            });
+            expect(authService.verifyEmail).toHaveBeenCalledWith(token);
+        });
+
+        it('propagates service errors', async () => {
+            authService.verifyEmail.mockRejectedValue(new Error('boom'));
+
+            await expect(controller.verifyEmail({ token: 'x' })).rejects.toThrow('boom');
+        });
+    });
+
+    describe('resendVerification', () => {
+        it('delegates the email to AuthService.resendVerification and returns its result', async () => {
+            const expected = { message: 'sent' };
+            authService.resendVerification.mockResolvedValue(expected);
+
+            await expect(
+                controller.resendVerification({ email: 'john@example.com' })
+            ).resolves.toEqual(expected);
+            expect(authService.resendVerification).toHaveBeenCalledWith('john@example.com');
+        });
+    });
+
     describe('deleteMe', () => {
         it('deletes the user identified by the token subject', async () => {
             const expected = { affected: 1, raw: [] };
@@ -105,6 +137,8 @@ describe('AuthController', () => {
             expect(guards(AuthController.prototype.checkToken)).toContain(AuthGuard);
             expect(guards(AuthController.prototype.signUp)).toHaveLength(0);
             expect(guards(AuthController.prototype.login)).toHaveLength(0);
+            expect(guards(AuthController.prototype.verifyEmail)).toHaveLength(0);
+            expect(guards(AuthController.prototype.resendVerification)).toHaveLength(0);
         });
     });
 });

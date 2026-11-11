@@ -1,7 +1,9 @@
-import { Body, Controller, Delete, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dtos/signup.dto';
 import { LoginDto } from './dtos/login.dto';
+import { VerifyEmailDto } from './dtos/verify-email.dto';
+import { ResendVerificationDto } from './dtos/resend-verification.dto';
 import { AuthGuard } from './auth.guard';
 import { CurrentUser } from './current-user.decorator';
 
@@ -17,6 +19,18 @@ export class AuthController {
     @Post('login')
     async login(@Body() loginData: LoginDto) {
         return this.authService.login(loginData);
+    }
+
+    @Post('verify-email')
+    @HttpCode(HttpStatus.OK)
+    async verifyEmail(@Body() { token }: VerifyEmailDto) {
+        return this.authService.verifyEmail(token);
+    }
+
+    @Post('resend-verification')
+    @HttpCode(HttpStatus.OK)
+    async resendVerification(@Body() { email }: ResendVerificationDto) {
+        return this.authService.resendVerification(email);
     }
 
     @Delete('me')
