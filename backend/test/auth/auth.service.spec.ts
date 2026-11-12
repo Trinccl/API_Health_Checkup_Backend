@@ -32,7 +32,7 @@ describe('AuthService', () => {
         sendVerificationEmail: jest.fn()
     };
     const config = {
-        get: jest.fn()
+        getOrThrow: jest.fn()
     };
 
     const bcryptHash = bcrypt.hash as jest.Mock;
@@ -40,6 +40,7 @@ describe('AuthService', () => {
 
     beforeEach(async () => {
         jest.resetAllMocks();
+        config.getOrThrow.mockReturnValue('https://app.example.com');
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -113,7 +114,7 @@ describe('AuthService', () => {
         });
 
         it('builds the link from FRONTEND_URL, ignoring a trailing slash', async () => {
-            config.get.mockReturnValue('https://app.example.com/');
+            config.getOrThrow.mockReturnValue('https://app.example.com/');
             userRepository.findOneBy.mockResolvedValue(null);
             bcryptHash.mockResolvedValue('hashed-password');
             userRepository.create.mockReturnValue({});

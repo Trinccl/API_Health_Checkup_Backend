@@ -56,6 +56,7 @@ describe('CheckerService - request body & expected body', () => {
             intervalMinutes: 5,
             alertOnDown: true,
             alertOnSlow: true,
+            enabled: true,
             status: 'UP',
             consecutiveFailures: 0,
             consecutiveSlowChecks: 0,
@@ -110,7 +111,7 @@ describe('CheckerService - request body & expected body', () => {
             expect(url).toBe('https://example.com/health');
             expect(init.method).toBe('POST');
             expect(init.body).toBe('{"ping":true}');
-            expect(init.headers).toEqual({ 'Content-Type': 'application/json' });
+            expect(new Headers(init.headers).get('content-type')).toBe('application/json');
         });
 
         it('sends a non-JSON body as text/plain', async () => {
@@ -119,7 +120,7 @@ describe('CheckerService - request body & expected body', () => {
 
             const init = fetchMock.mock.calls[0][1];
             expect(init.body).toBe('just some text');
-            expect(init.headers).toEqual({ 'Content-Type': 'text/plain' });
+            expect(new Headers(init.headers).get('content-type')).toBe('text/plain');
         });
 
         it('sends no body or content type when requestBody is not set', async () => {
@@ -128,7 +129,7 @@ describe('CheckerService - request body & expected body', () => {
 
             const init = fetchMock.mock.calls[0][1];
             expect(init.body).toBeUndefined();
-            expect(init.headers).toBeUndefined();
+            expect(new Headers(init.headers).has('content-type')).toBe(false);
         });
 
         it('never sends a body with GET, even if one is stored', async () => {
@@ -168,7 +169,7 @@ describe('CheckerService - request body & expected body', () => {
             expect(log.statusCode).toBe(200);
             expect(log.error).toBe('Response body did not contain expected text');
             expect(apiRepository.update).toHaveBeenCalledWith(
-                'api-id',
+                { id: 'api-id', enabled: true },
                 expect.objectContaining({ status: 'ERROR' })
             );
         });
@@ -187,13 +188,21 @@ describe('CheckerService - request body & expected body', () => {
 
             expect(log.status).toBe('ERROR');
             expect(log.error).toBe('HTTP 500');
-            expect(res.text).not.toHaveBeenCalled();
         });
 
-        it('does not read the body when no expectedBody is configured, and releases it', async () => {
+        it('stores the response body in the log even when no expectedBody is configured', async () => {
             const res = fakeResponse({ body: 'anything' });
             fetchMock.mockResolvedValue(res);
             const log = await runAndGetLog(makeApi({ expectedBody: null }));
+
+            expect(log.status).toBe('UP');
+            expect(log.responseBody).toBe('anything');
+        });
+
+        it('does not read the body of a HEAD request, and releases it', async () => {
+            const res = fakeResponse({ body: 'anything' });
+            fetchMock.mockResolvedValue(res);
+            const log = await runAndGetLog(makeApi({ requestMethod: 'HEAD', expectedBody: null }));
 
             expect(log.status).toBe('UP');
             expect(res.text).not.toHaveBeenCalled();
@@ -216,7 +225,7 @@ describe('CheckerService - request body & expected body', () => {
             await runAndGetLog(makeApi({ expectedBody: 'healthy', consecutiveFailures: 2 }));
 
             expect(apiRepository.update).toHaveBeenCalledWith(
-                'api-id',
+                { id: 'api-id', enabled: true },
                 expect.objectContaining({ consecutiveFailures: 0 })
             );
             expect(notifications.sendDownAlert).not.toHaveBeenCalled();
