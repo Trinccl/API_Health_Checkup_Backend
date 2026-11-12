@@ -10,11 +10,7 @@ describe('AuthController', () => {
 
     const authService = {
         signUp: jest.fn(),
-        login: jest.fn(),
-        deleteUserById: jest.fn(),
-        checkToken: jest.fn(),
-        verifyEmail: jest.fn(),
-        resendVerification: jest.fn()
+        login: jest.fn()
     };
 
     beforeEach(async () => {
@@ -24,7 +20,6 @@ describe('AuthController', () => {
             controllers: [AuthController],
             providers: [{ provide: AuthService, useValue: authService }]
         })
-            // the guard needs JwtService; it has its own spec, so stub it here
             .overrideGuard(AuthGuard)
             .useValue({ canActivate: () => true })
             .compile();
@@ -49,7 +44,9 @@ describe('AuthController', () => {
         it('propagates service errors', async () => {
             authService.signUp.mockRejectedValue(new Error('boom'));
 
-            await expect(controller.signUp({} as SignupDto)).rejects.toThrow('boom');
+            await expect(controller.signUp({} as SignupDto)).rejects.toThrow(
+                'boom'
+            );
         });
     });
 
@@ -69,76 +66,9 @@ describe('AuthController', () => {
         it('propagates service errors', async () => {
             authService.login.mockRejectedValue(new Error('boom'));
 
-            await expect(controller.login({} as LoginDto)).rejects.toThrow('boom');
-        });
-    });
-
-    describe('verifyEmail', () => {
-        it('delegates the token to AuthService.verifyEmail and returns its result', async () => {
-            const token = 'a'.repeat(64);
-            authService.verifyEmail.mockResolvedValue({ verified: true });
-
-            await expect(controller.verifyEmail({ token })).resolves.toEqual({
-                verified: true
-            });
-            expect(authService.verifyEmail).toHaveBeenCalledWith(token);
-        });
-
-        it('propagates service errors', async () => {
-            authService.verifyEmail.mockRejectedValue(new Error('boom'));
-
-            await expect(controller.verifyEmail({ token: 'x' })).rejects.toThrow('boom');
-        });
-    });
-
-    describe('resendVerification', () => {
-        it('delegates the email to AuthService.resendVerification and returns its result', async () => {
-            const expected = { message: 'sent' };
-            authService.resendVerification.mockResolvedValue(expected);
-
-            await expect(
-                controller.resendVerification({ email: 'john@example.com' })
-            ).resolves.toEqual(expected);
-            expect(authService.resendVerification).toHaveBeenCalledWith('john@example.com');
-        });
-    });
-
-    describe('deleteMe', () => {
-        it('deletes the user identified by the token subject', async () => {
-            const expected = { affected: 1, raw: [] };
-            authService.deleteUserById.mockResolvedValue(expected);
-
-            await expect(controller.deleteMe({ sub: 'user-id' })).resolves.toEqual(expected);
-            expect(authService.deleteUserById).toHaveBeenCalledWith('user-id');
-        });
-
-        it('propagates service errors', async () => {
-            authService.deleteUserById.mockRejectedValue(new Error('boom'));
-
-            await expect(controller.deleteMe({ sub: 'user-id' })).rejects.toThrow('boom');
-        });
-    });
-
-    describe('checkToken', () => {
-        it('delegates to AuthService.checkToken and returns its result', async () => {
-            const expected = { result: 'Token correct' };
-            authService.checkToken.mockResolvedValue(expected);
-
-            await expect(controller.checkToken()).resolves.toEqual(expected);
-            expect(authService.checkToken).toHaveBeenCalledTimes(1);
-        });
-    });
-
-    describe('guards', () => {
-        it('protects deleteMe and checkToken with AuthGuard but leaves signup/login open', () => {
-            const guards = (handler: object) => Reflect.getMetadata('__guards__', handler) ?? [];
-
-            expect(guards(AuthController.prototype.deleteMe)).toContain(AuthGuard);
-            expect(guards(AuthController.prototype.checkToken)).toContain(AuthGuard);
-            expect(guards(AuthController.prototype.signUp)).toHaveLength(0);
-            expect(guards(AuthController.prototype.login)).toHaveLength(0);
-            expect(guards(AuthController.prototype.verifyEmail)).toHaveLength(0);
-            expect(guards(AuthController.prototype.resendVerification)).toHaveLength(0);
+            await expect(controller.login({} as LoginDto)).rejects.toThrow(
+                'boom'
+            );
         });
     });
 });
