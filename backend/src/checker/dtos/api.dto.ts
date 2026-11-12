@@ -45,6 +45,7 @@ export class ApiDto {
     })
     requestMethod: HttpMethod;
 
+    @IsOptional()
     @Min(1)
     @Max(59)
     @IsInt()

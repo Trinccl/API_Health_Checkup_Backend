@@ -15,12 +15,9 @@ export class User {
     @Column({ nullable: false })
     password: string;
 
-    // default: true only affects rows that already exist (they are grandfathered in);
-    // signUp always sets this to false explicitly for new accounts.
-    @Column({ default: true })
+    @Column({ default: false })
     emailVerified: boolean;
 
-    // sha256 of the token that was emailed; the raw token is never stored
     @Index()
     @Column({ type: 'varchar', nullable: true })
     verificationTokenHash: string | null;

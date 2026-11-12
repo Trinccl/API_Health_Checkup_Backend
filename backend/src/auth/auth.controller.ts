@@ -6,16 +6,28 @@ import { VerifyEmailDto } from './dtos/verify-email.dto';
 import { ResendVerificationDto } from './dtos/resend-verification.dto';
 import { AuthGuard } from './auth.guard';
 import { CurrentUser } from './current-user.decorator';
-
+import { Throttle } from '@nestjs/throttler';
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) {}
 
+    @Throttle({
+        default: {
+            limit: 5,
+            ttl: 60000
+        }
+    })
     @Post('signup')
     async signUp(@Body() signupData: SignupDto) {
         return this.authService.signUp(signupData);
     }
 
+    @Throttle({
+        default: {
+            limit: 5,
+            ttl: 60000
+        }
+    })
     @Post('login')
     async login(@Body() loginData: LoginDto) {
         return this.authService.login(loginData);

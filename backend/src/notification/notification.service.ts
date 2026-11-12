@@ -114,7 +114,6 @@ export class NotificationService {
         }
     }
 
-    // Never throws: a mail outage must not break signup (the user can request a new link)
     async sendVerificationEmail(to: string, name: string, link: string) {
         try {
             await this.transporter.sendMail({

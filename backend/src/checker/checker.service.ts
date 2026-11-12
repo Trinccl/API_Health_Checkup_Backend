@@ -20,7 +20,8 @@ import {
     MAX_EXPECTED_BODY_LENGTH,
     METHODS_WITHOUT_REQUEST_BODY,
     METHODS_WITHOUT_RESPONSE_BODY,
-    REQUEST_TIMEOUT_MS
+    REQUEST_TIMEOUT_MS,
+    USER_AGENT
 } from './checker.constants';
 import { NotificationService } from '../notification/notification.service';
 
@@ -113,7 +114,7 @@ export class CheckerService implements OnModuleInit {
                 );
             }
         }
-
+        if (!headers.has('user-agent')) headers.set('user-agent', USER_AGENT);
         init.headers = headers;
 
         return init;
@@ -177,6 +178,9 @@ export class CheckerService implements OnModuleInit {
             let error = response.ok ? null : `HTTP ${response.status}`;
             let responseBody: string | null = null;
 
+            if (response.status === 429) {
+                error = 'Rate limited (HTTP 429)';
+            }
             if (method === 'HEAD') {
                 await response.body?.cancel().catch(() => undefined);
             } else {

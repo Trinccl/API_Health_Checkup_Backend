@@ -17,7 +17,6 @@ import { NotificationService } from '../notification/notification.service';
 
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
-// Same answer whether or not the account exists, so this can't be used to probe emails
 const RESEND_MESSAGE =
     'If that account exists and is not verified yet, a new verification email has been sent';
 
@@ -40,9 +39,6 @@ export class AuthService {
             throw new BadRequestException('Email already in use');
         }
 
-        // An unverified account can't log in, so it must not block the real owner of
-        // the address from signing up. It is overwritten, but not faster than the cooldown
-        // (otherwise this endpoint could be used to spam someone with emails).
         if (existing && this.sentRecently(existing)) {
             throw new BadRequestException(
                 'A verification email was just sent. Please wait a minute and try again.'
@@ -84,7 +80,6 @@ export class AuthService {
             throw new UnauthorizedException('Wrong credentials');
         }
 
-        // Checked after the password so a wrong password never reveals the account state
         if (!user.emailVerified) {
             throw new ForbiddenException('Email not verified');
         }
@@ -104,7 +99,6 @@ export class AuthService {
             throw new BadRequestException('Invalid or expired verification link');
         }
 
-        // Opening the link twice (or a mail client pre-fetching it) must not look like a failure
         if (user.emailVerified) {
             return { verified: true };
         }
@@ -167,12 +161,8 @@ export class AuthService {
         );
     }
 
-    // Fire and forget: NotificationService logs its own failures and never throws
     private sendVerification(name: string, email: string, token: string) {
-        const base = (this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173').replace(
-            /\/+$/,
-            ''
-        );
+        const base = this.config.getOrThrow<string>('FRONTEND_URL').replace(/\/+$/, '');
 
         void this.notifications.sendVerificationEmail(
             email,
