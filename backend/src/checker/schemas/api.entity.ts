@@ -16,7 +16,7 @@ export class Api {
     @Column({ nullable: false })
     slowThresholdMs: number;
 
-    @Column({ nullable: false })
+    @Column({ nullable: true })
     errorsToAlert: number;
 
     @Column({ nullable: false })

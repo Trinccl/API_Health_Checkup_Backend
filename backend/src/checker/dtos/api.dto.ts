@@ -35,6 +35,7 @@ export class ApiDto {
     @IsNumber()
     slowThresholdMs: number;
 
+    @IsOptional()
     @Min(1)
     @IsInt()
     errorsToAlert: number;
@@ -45,7 +46,6 @@ export class ApiDto {
     })
     requestMethod: HttpMethod;
 
-    @IsOptional()
     @Min(1)
     @Max(59)
     @IsInt()
